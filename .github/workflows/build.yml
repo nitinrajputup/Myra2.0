@@ -1,0 +1,52 @@
+
+name: MYRA AI 2.0 Cloud Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Extract uploaded ZIP files
+        run: |
+          mkdir extracted
+          find . -maxdepth 1 -name '*.zip' -print0 |
+          while IFS= read -r -d '' f; do
+            unzip -o "$f" -d extracted
+          done
+
+      - name: Find Android project
+        run: |
+          PROJECT=$(find extracted -name settings.gradle.kts -o -name settings.gradle | head -1)
+          test -n "$PROJECT"
+          echo "PROJECT_DIR=$(dirname "$PROJECT")" >> $GITHUB_ENV
+
+      - name: Build APK
+        run: |
+          cd "$PROJECT_DIR"
+          gradle assembleDebug
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MYRA-AI-2.0-APK
+          path: extracted/**/build/outputs/apk/debug/*.apk
